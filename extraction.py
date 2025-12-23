@@ -57,3 +57,8 @@ def extract_text(uploaded) -> str:
         return data.decode("utf-8", errors="ignore")
     except Exception:
         return ""
+
+# ==============================================
+# File text extraction
+# - PDF (PyPDF2), DOCX (python-docx), TXT
+# ==============================================

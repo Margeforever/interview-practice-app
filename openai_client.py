@@ -49,3 +49,9 @@ def call_openai(
     )
 
     return completion.choices[0].message.content or ""
+
+# ==============================================
+# OpenAI client wrapper
+# - Single function to call chat.completions
+# - Optional JSON enforcement via response_format
+# ==============================================

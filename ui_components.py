@@ -4,6 +4,18 @@ import streamlit as st
 from dataclasses import dataclass
 from typing import Literal
 
+# ==============================================
+# UI components
+# Responsibilities:
+# - Sidebar controls (model and generation settings)
+# - Upload section (CV/JD)
+# - Assistant output rendering (Text / JSON)
+# ==============================================
+
+# -----------------------------
+# Types
+# -----------------------------
+
 OutputFormat = Literal["Text", "JSON_A", "JSON_B"]
 
 @dataclass
@@ -15,6 +27,10 @@ class UiSettings:
     presence_penalty: float
     max_tokens: int
     output_format: OutputFormat
+
+# -----------------------------
+# Sidebar
+# -----------------------------
 
 def render_sidebar(allowed_models: list[str], default_model: str) -> UiSettings:
     st.sidebar.header("Settings")
@@ -39,11 +55,19 @@ def render_sidebar(allowed_models: list[str], default_model: str) -> UiSettings:
         output_format=output_format,
     )
 
+# -----------------------------
+# Upload section
+# -----------------------------
+
 def render_upload_section():
     st.header("Upload CV and Job Description")
     cv_file = st.file_uploader("CV (PDF/DOCX/TXT)", type=["pdf", "docx", "txt"])
     jd_file = st.file_uploader("Job Description (PDF/DOCX/TXT)", type=["pdf", "docx", "txt"])
     return cv_file, jd_file
+
+# -----------------------------
+# Assistant output rendering
+# -----------------------------
 
 def _extract_json_candidate(text: str) -> str:
     """

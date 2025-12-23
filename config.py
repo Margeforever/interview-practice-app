@@ -2,6 +2,12 @@ import os
 import streamlit as st
 from dotenv import load_dotenv
 
+# ==============================================
+# Configuration
+# - Model defaults and allowed models
+# - API key loading (env / Streamlit secrets)
+# ==============================================
+
 # Single model per requirements
 MODEL = "gpt-4o-mini"
 

@@ -22,6 +22,18 @@ from chat_controller import (
     chat_turn,
 )
 
+# ==============================================
+# Interview Practice App - Streamlit entry point
+# Sections:
+# - Imports
+# - Page config and title
+# - Session state setup
+# - Constants (system prompt)
+# - Sidebar and upload UI
+# - Control buttons
+# - Chat UI (multi-turn)
+# ==============================================
+
 # -----------------------------
 # Session state
 # -----------------------------

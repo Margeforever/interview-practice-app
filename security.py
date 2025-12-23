@@ -1,5 +1,10 @@
 import re
 
+# ==============================================
+# Security and limits
+# - MAX_CHARS cap and simple blocklist checks
+# ==============================================
+
 # Prompt-injection blocklist (applied to user-provided documents only)
 BLOCKLIST_PATTERNS = [
     r"ignore (?:previous )?instructions",

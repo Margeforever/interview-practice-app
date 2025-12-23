@@ -59,6 +59,12 @@ def build_user_prompt(
     )
 
 
+# ==============================================
+# Prompt helpers and JSON format instructions
+# - Perspective text and base prompt builders
+# - Strict JSON format instructions (FORMAT_JSON_A / FORMAT_JSON_B)
+# ==============================================
+
 # -----------------------------
 # JSON format instructions
 # -----------------------------
