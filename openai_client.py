@@ -1,13 +1,12 @@
 """
-OpenAI client wrapper (keeps API logic modular and testable).
+OpenAI client wrapper.
+
+Provides a single function to call the Chat Completions API with an
+optional JSON response_format.
 """
-import os
-import logging
-from dotenv import load_dotenv
+
 from openai import OpenAI
 
-load_dotenv()
-logging.basicConfig(level=logging.INFO)
 
 def call_openai(
     api_key: str,
@@ -21,18 +20,29 @@ def call_openai(
     presence_penalty: float,
     force_json: bool = False,
 ) -> str:
-    api_key = api_key or os.getenv("OPENAI_API_KEY", "")
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY missing.")
+    """Call OpenAI chat completions and return the assistant content.
 
+    Args:
+        api_key: OpenAI API key.
+        model: Model name.
+        system_prompt: System message to prime behavior.
+        user_prompt: User prompt content.
+        temperature: Sampling temperature.
+        max_tokens: Response token cap.
+        top_p: Nucleus sampling parameter.
+        frequency_penalty: Frequency penalty.
+        presence_penalty: Presence penalty.
+        force_json: If True, request JSON output format.
+
+    Returns:
+        Assistant message content as a string.
+    """
     client = OpenAI(api_key=api_key)
 
     kwargs = {}
     if force_json:
+        # Requires a model that supports JSON mode (e.g., gpt-4o, gpt-4o-mini).
         kwargs["response_format"] = {"type": "json_object"}
-        temperature = 0.0  # deterministic for JSON
-
-    logging.info(f"[OpenAI] model={model} force_json={force_json} kwargs={kwargs}")
 
     completion = client.chat.completions.create(
         model=model,
@@ -47,11 +57,4 @@ def call_openai(
         presence_penalty=presence_penalty,
         **kwargs,
     )
-
-    return completion.choices[0].message.content or ""
-
-# ==============================================
-# OpenAI client wrapper
-# - Single function to call chat.completions
-# - Optional JSON enforcement via response_format
-# ==============================================
+    return completion.choices[0].message.content

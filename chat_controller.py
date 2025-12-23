@@ -1,35 +1,57 @@
-# chat_controller.py
+# """Chat controller.
+#
+# Responsibilities:
+# - Manage session state.
+# - Build prompts and call the model.
+# - Initialize chat context and handle user turns.
+# """
+
+from typing import Optional, Tuple
+
 import streamlit as st
-from typing import Tuple, Optional
 
-from extraction import extract_text
-from security import MAX_CHARS, matches_blocklist
 from config import get_openai_api_key
+from extraction import extract_text
 from openai_client import call_openai
-from prompts_formats import build_perspective_text, build_user_prompt, FORMAT_JSON_A, FORMAT_JSON_B
+from prompts_formats import (
+    FORMAT_JSON_A,
+    FORMAT_JSON_B,
+    build_perspective_text,
+    build_user_prompt,
+)
+from security import MAX_CHARS, matches_blocklist
 
 
-def ensure_session_state():
+# -----------------------------
+# Session state helpers
+# -----------------------------
+def ensure_session_state() -> None:
+    """Ensure required keys exist in Streamlit session_state."""
     st.session_state.setdefault("messages", [])
     st.session_state.setdefault("cv_text", "")
     st.session_state.setdefault("jd_text", "")
     st.session_state.setdefault("perspective_mode", "candidate")
     st.session_state.setdefault("initialized", False)
-    # NEW: lock output format per chat session
+    # Lock output format per chat session
     st.session_state.setdefault("output_format", "Text")
 
 
-def reset_state():
+def reset_state() -> None:
+    """Reset the chat-related session_state to defaults."""
     st.session_state.messages = []
     st.session_state.cv_text = ""
     st.session_state.jd_text = ""
     st.session_state.perspective_mode = "candidate"
     st.session_state.initialized = False
-    # NEW: reset locked output format
+    # Reset locked output format
     st.session_state.output_format = "Text"
 
 
+# -----------------------------
+# Output format instructions
+# -----------------------------
 def _format_instruction(output_format: str) -> str:
+    """Return format instruction block based on chosen output format."""
     if output_format == "JSON_A":
         return FORMAT_JSON_A
     if output_format == "JSON_B":
@@ -38,20 +60,25 @@ def _format_instruction(output_format: str) -> str:
 
 
 def _effective_system_prompt(system_prompt: str, output_format: str) -> str:
-    """
-    Enforce JSON-only output when JSON formats are selected.
+    """Augment the system prompt when JSON is requested.
+
+    If the output format is JSON, enforce strict JSON-only responses.
     """
     if output_format.startswith("JSON"):
         return (
             system_prompt
             + "\n\nIMPORTANT OUTPUT RULE:\n"
-              "If the user requested JSON, you MUST output ONLY valid JSON.\n"
-              "Do not output markdown, headings, backticks, code fences, or extra text.\n"
-              "If a value is unknown, use an empty string or empty list.\n"
+            + "If the user requested JSON, you MUST output ONLY valid JSON.\n"
+            + "Do not output markdown, headings, backticks, code fences, "
+            + "or extra text.\n"
+            + "If a value is unknown, use an empty string or empty list.\n"
         )
     return system_prompt
 
 
+# -----------------------------
+# Model call
+# -----------------------------
 def _call_model(
     model: str,
     system_prompt: str,
@@ -63,9 +90,27 @@ def _call_model(
     presence_penalty: float,
     force_json: bool = False,
 ) -> str:
+    """Call the OpenAI API wrapper.
+
+    Args:
+        model: Model name.
+        system_prompt: System message to prime the assistant.
+        user_prompt: User prompt content.
+        temperature: Sampling temperature.
+        max_tokens: Response token cap.
+        top_p: Nucleus sampling parameter.
+        frequency_penalty: Frequency penalty.
+        presence_penalty: Presence penalty.
+        force_json: If True, request JSON output format.
+
+    Returns:
+        Assistant text response.
+    """
     api_key = get_openai_api_key()
     if not api_key:
-        raise RuntimeError("OPENAI_API_KEY missing. Set it in .env or Streamlit secrets.")
+        raise RuntimeError(
+            "OPENAI_API_KEY missing. Set it in .env or Streamlit secrets."
+        )
 
     return call_openai(
         api_key=api_key,
@@ -81,6 +126,9 @@ def _call_model(
     )
 
 
+# -----------------------------
+# Initialize chat
+# -----------------------------
 def initialize_chat(
     cv_file,
     jd_file,
@@ -94,6 +142,24 @@ def initialize_chat(
     frequency_penalty: float,
     presence_penalty: float,
 ) -> Tuple[bool, Optional[str]]:
+    """Initialize chat: extract files, seed first assistant message.
+
+    Args:
+        cv_file: Uploaded CV file.
+        jd_file: Uploaded JD file.
+        is_interviewer: Perspective flag (True for interviewer mode).
+        output_format: "Text" | "JSON_A" | "JSON_B".
+        model: Model name to use.
+        system_prompt: Global system prompt to apply.
+        temperature: Sampling temperature.
+        max_tokens: Response token cap.
+        top_p: Nucleus sampling parameter.
+        frequency_penalty: Frequency penalty.
+        presence_penalty: Presence penalty.
+
+    Returns:
+        Tuple of (ok, error_message). If ok is False, error_message is set.
+    """
     if not cv_file or not jd_file:
         return False, "Please upload both CV and Job Description."
 
@@ -101,17 +167,22 @@ def initialize_chat(
     jd_text = extract_text(jd_file)
 
     if len(cv_text) < 20 or len(jd_text) < 20:
-        return False, "Could not extract enough text from one of the files. Try a different format."
+        return False, (
+            "Could not extract enough text from one of the files. "
+            "Try a different format."
+        )
     if matches_blocklist(cv_text) or matches_blocklist(jd_text):
         return False, "Blocked content detected (potential prompt-injection)."
 
     st.session_state.cv_text = cv_text[:MAX_CHARS]
     st.session_state.jd_text = jd_text[:MAX_CHARS]
-    st.session_state.perspective_mode = "interviewer" if is_interviewer else "candidate"
+    st.session_state.perspective_mode = (
+        "interviewer" if is_interviewer else "candidate"
+    )
     st.session_state.messages = []
     st.session_state.initialized = True
 
-    # NEW: lock the chosen output format for this chat session
+    # Lock the chosen output format for this chat session
     st.session_state.output_format = output_format
 
     fmt_instr = _format_instruction(output_format)
@@ -137,7 +208,8 @@ def initialize_chat(
     elif output_format == "JSON_B":
         json_b_task = (
             "Task:\n"
-            "Generate 10 tailored interview questions (mix behavioral + technical) based on CV and JD.\n"
+            "Generate 10 tailored interview questions (mix behavioral + "
+            "technical) based on CV and JD.\n"
             "Provide model answers.\n"
             "Do NOT output CV/JD summaries.\n\n"
             "=== CV ===\n"
@@ -145,10 +217,15 @@ def initialize_chat(
             "=== JOB DESCRIPTION ===\n"
             f"{st.session_state.jd_text}\n"
         )
-        starter_prompt = f"{fmt_instr}\n\n{json_b_task}\n\nPerspective: {perspective_text}"
+        starter_prompt = (
+            f"{fmt_instr}\n\n{json_b_task}\n\nPerspective: {perspective_text}"
+        )
 
     else:
-        step4 = "4) Generate 10 tailored interview questions (behavioral + technical) and provide answers."
+        step4 = (
+            "4) Generate 10 tailored interview questions (behavioral + "
+            "technical) and provide answers."
+        )
         base_prompt = build_user_prompt(
             cv_text=st.session_state.cv_text,
             jd_text=st.session_state.jd_text,
@@ -174,6 +251,9 @@ def initialize_chat(
     return True, None
 
 
+# -----------------------------
+# Chat turn
+# -----------------------------
 def chat_turn(
     user_input: str,
     output_format: str,
@@ -185,87 +265,64 @@ def chat_turn(
     frequency_penalty: float,
     presence_penalty: float,
 ) -> str:
+    """Single chat turn: append user input and get assistant response.
+
+    Args:
+        user_input: New user message to process.
+        output_format: "Text" | "JSON_A" | "JSON_B".
+        model: Model name to use.
+        system_prompt: Global system prompt to apply.
+        temperature: Sampling temperature.
+        max_tokens: Response token cap.
+        top_p: Nucleus sampling parameter.
+        frequency_penalty: Frequency penalty.
+        presence_penalty: Presence penalty.
+
+    Returns:
+        Assistant text response.
+    """
     if matches_blocklist(user_input):
-        raise RuntimeError("Blocked content detected (potential prompt-injection).")
+        raise RuntimeError(
+            "Blocked content detected (potential prompt-injection)."
+        )
 
     st.session_state.messages.append({"role": "user", "content": user_input})
 
     fmt_instr = _format_instruction(output_format)
     is_interviewer = st.session_state.perspective_mode == "interviewer"
     perspective_text = build_perspective_text(is_interviewer=is_interviewer)
-    effective_system = _effective_system_prompt(system_prompt, output_format)
 
-    effective_temperature = 0.0 if output_format.startswith("JSON") else temperature
-
+    # Compact history (last 8 messages)
     history = st.session_state.messages[-8:]
-    history_block = "\n".join([f'{m["role"].upper()}: {m["content"]}' for m in history])
+    history_block = "\n".join(
+        [f'{m["role"].upper()}: {m["content"]}' for m in history]
+    )
 
-    if output_format == "JSON_A":
-        json_a_followup_task = (
-            "Task:\n"
-            "Update the JSON_A output based on the NEW USER MESSAGE.\n"
-            "You must still return ONLY JSON with keys: cv_summary, job_summary, matches, gaps.\n"
-            "Do NOT add any other keys.\n\n"
-            "=== CONTEXT ===\n"
-            "CV and JD are provided below.\n\n"
-            "=== CV ===\n"
-            f"{st.session_state.cv_text}\n\n"
-            "=== JOB DESCRIPTION ===\n"
-            f"{st.session_state.jd_text}\n\n"
-        )
-        prompt = (
-            f"{fmt_instr}\n\n"
-            f"{json_a_followup_task}"
-            "=== CHAT HISTORY (most recent) ===\n"
-            f"{history_block}\n\n"
-            "=== NEW USER MESSAGE ===\n"
-            f"{user_input}\n"
-        )
+    base = build_user_prompt(
+        cv_text=st.session_state.cv_text,
+        jd_text=st.session_state.jd_text,
+        step4=(
+            "4) Continue the interview practice based on the new user "
+            "message."
+        ),
+        perspective_text=perspective_text,
+        max_chars=MAX_CHARS,
+    )
 
-    elif output_format == "JSON_B":
-        json_b_followup_task = (
-            "Task:\n"
-            "Based on the NEW USER MESSAGE, refine or generate interview questions.\n"
-            "Return ONLY JSON with key: questions.\n"
-            "Do NOT output CV/JD summaries.\n\n"
-            "=== CONTEXT ===\n"
-            "=== CV ===\n"
-            f"{st.session_state.cv_text}\n\n"
-            "=== JOB DESCRIPTION ===\n"
-            f"{st.session_state.jd_text}\n\n"
-            f"Perspective: {perspective_text}\n\n"
-        )
-        prompt = (
-            f"{fmt_instr}\n\n"
-            f"{json_b_followup_task}"
-            "=== CHAT HISTORY (most recent) ===\n"
-            f"{history_block}\n\n"
-            "=== NEW USER MESSAGE ===\n"
-            f"{user_input}\n"
-        )
-
-    else:
-        base = build_user_prompt(
-            cv_text=st.session_state.cv_text,
-            jd_text=st.session_state.jd_text,
-            step4="4) Continue the interview practice based on the new user message.",
-            perspective_text=perspective_text,
-            max_chars=MAX_CHARS,
-        )
-        prompt = (
-            f"{fmt_instr}\n\n"
-            f"{base}\n\n"
-            "=== CHAT HISTORY (most recent) ===\n"
-            f"{history_block}\n\n"
-            "=== NEW USER MESSAGE ===\n"
-            f"{user_input}\n"
-        )
+    prompt = (
+        f"{fmt_instr}\n\n"
+        f"{base}\n\n"
+        "=== CHAT HISTORY (most recent) ===\n"
+        f"{history_block}\n\n"
+        "=== NEW USER MESSAGE ===\n"
+        f"{user_input}\n"
+    )
 
     assistant = _call_model(
         model=model,
-        system_prompt=effective_system,
+        system_prompt=system_prompt,
         user_prompt=prompt,
-        temperature=effective_temperature,
+        temperature=temperature,
         max_tokens=max_tokens,
         top_p=top_p,
         frequency_penalty=frequency_penalty,
