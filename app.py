@@ -37,6 +37,7 @@ from ui_components import (
 # -----------------------------
 # Session state
 # -----------------------------
+# Prepares persistent storage so the chat can span multiple turns without losing context or crashing
 ensure_session_state()
 
 # -----------------------------
@@ -75,17 +76,17 @@ if btn_reset:
 if btn_interviewer or btn_candidate:
     with st.spinner("Calling model..."):
         ok, err = initialize_chat(
-            cv_file=cv_file,
+            cv_file=cv_file,    
             jd_file=jd_file,
-            is_interviewer=bool(btn_interviewer),
+            is_interviewer=bool(btn_interviewer),  # true: interviewer, false: candidate
             output_format=settings.output_format,  # chosen now, then locked
-            model=settings.model,
-            system_prompt=SYSTEM_PROMPT,
-            temperature=settings.temperature,
-            max_tokens=settings.max_tokens,
-            top_p=settings.top_p,
-            frequency_penalty=settings.frequency_penalty,
-            presence_penalty=settings.presence_penalty,
+            model=settings.model,   # Model to use for generating responses
+            system_prompt=SYSTEM_PROMPT,   # Fixed system prompt for the session
+            temperature=settings.temperature,   # Controls randomness of the model's output
+            max_tokens=settings.max_tokens,   # Maximum number of tokens in the model's response
+            top_p=settings.top_p,   # Controls how many probable next tokens the model considers
+            frequency_penalty=settings.frequency_penalty,   # Penalizes repeated tokens to reduce repetition
+            presence_penalty=settings.presence_penalty,   # Encourages introducing new topics by penalizing existing tokens
         )
     if not ok and err:
         st.error(err)
@@ -106,12 +107,12 @@ if not st.session_state.initialized:
         "to initialize the chat context."
     )
 else:
-    # IMPORTANT: Use locked output format for the whole session
+    # IMPORTANT: Use locked output format for the whole session to ensure consistency and safety
     locked_format = st.session_state.output_format
     st.info(f"Locked output format for this chat: {locked_format}")
 
     # Render history once
-    for m in st.session_state.messages:
+    for m in st.session_state.messages:   # m = message
         with st.chat_message(m["role"]):
             if m["role"] == "assistant":
                 render_assistant_output(m["content"], locked_format)
@@ -122,11 +123,11 @@ else:
     user_msg = st.chat_input("Ask a follow up question.")
     if user_msg:
         with st.chat_message("user"):
-            st.markdown(user_msg)
+            st.markdown(user_msg)   # Display user message in chat
 
         with st.spinner("Thinking..."):
             try:
-                assistant_text = chat_turn(
+                assistant_text = chat_turn(   # Process a chat turn: new user message + previous chat history + system prompt + parameters  
                     user_input=user_msg,
                     output_format=locked_format,  # IMPORTANT: locked
                     model=settings.model,
@@ -137,10 +138,10 @@ else:
                     frequency_penalty=settings.frequency_penalty,
                     presence_penalty=settings.presence_penalty,
                 )
-            except Exception as exc:
+            except Exception as exc:   
                 st.error(f"API error: {exc}")
                 st.stop()
 
-        with st.chat_message("assistant"):
-            render_assistant_output(assistant_text, locked_format)
+        with st.chat_message("assistant"):   
+            render_assistant_output(assistant_text, locked_format)   # Show new response
 

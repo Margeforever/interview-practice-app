@@ -15,7 +15,7 @@ import streamlit as st
 OutputFormat = Literal["Text", "JSON_A", "JSON_B"]
 
 
-@dataclass
+@dataclass   # Python decorator that automatically creates simple data container for sidebar values (no logic or computation)
 class UiSettings:
     """Settings captured from the sidebar UI."""
     model: str
