@@ -26,7 +26,8 @@ from security import MAX_CHARS, matches_blocklist
 # Session state helpers
 # -----------------------------
 def ensure_session_state() -> None:
-    """Ensure required keys exist in Streamlit session_state."""
+    """Ensure all required session state variables are initialized before the app
+    uses them."""
     st.session_state.setdefault("messages", [])
     st.session_state.setdefault("cv_text", "")
     st.session_state.setdefault("jd_text", "")
@@ -37,13 +38,14 @@ def ensure_session_state() -> None:
 
 
 def reset_state() -> None:
-    """Reset the chat-related session_state to defaults."""
+    """Clear all chat-related session data to start a new conversation with a
+    clean state."""
     st.session_state.messages = []
     st.session_state.cv_text = ""
     st.session_state.jd_text = ""
     st.session_state.perspective_mode = "candidate"
     st.session_state.initialized = False
-    # Reset locked output format
+    # Resets the output format set per session.
     st.session_state.output_format = "Text"
 
 
@@ -51,7 +53,8 @@ def reset_state() -> None:
 # Output format instructions
 # -----------------------------
 def _format_instruction(output_format: str) -> str:
-    """Return format instruction block based on chosen output format."""
+    """Adds explicit instructions to the prompt that tell the LLM whether to respond
+    in JSON_A, JSON_B, or plain text."""
     if output_format == "JSON_A":
         return FORMAT_JSON_A
     if output_format == "JSON_B":
@@ -60,9 +63,8 @@ def _format_instruction(output_format: str) -> str:
 
 
 def _effective_system_prompt(system_prompt: str, output_format: str) -> str:
-    """Augment the system prompt when JSON is requested.
-
-    If the output format is JSON, enforce strict JSON-only responses.
+    """Dynamically augments the system prompt when a JSON output format is selected
+    to enforce strict JSON-only responses and prevent extra text or formatting.
     """
     if output_format.startswith("JSON"):
         return (
@@ -77,7 +79,7 @@ def _effective_system_prompt(system_prompt: str, output_format: str) -> str:
 
 
 # -----------------------------
-# Model call
+# LLM call (OpenAI)
 # -----------------------------
 def _call_model(
     model: str,
@@ -90,7 +92,9 @@ def _call_model(
     presence_penalty: float,
     force_json: bool = False,
 ) -> str:
-    """Call the OpenAI API wrapper.
+    """Central, encapsulated helper that collects all required LLM parameters,
+        validates the presence of the API key, and forwards the request to the
+        OpenAI client wrapper to retrieve the model response.
 
     Args:
         model: Model name.
@@ -127,7 +131,7 @@ def _call_model(
 
 
 # -----------------------------
-# Initialize chat
+# Initialize (start) chat
 # -----------------------------
 def initialize_chat(
     cv_file,
@@ -142,7 +146,13 @@ def initialize_chat(
     frequency_penalty: float,
     presence_penalty: float,
 ) -> Tuple[bool, Optional[str]]:
-    """Initialize chat: extract files, seed first assistant message.
+    """Creates the first chat session based on the uploaded CV and Job Description.
+
+    Initializes a new chat session by extracting and validating the CV and job
+    description, storing the cleaned context in session state, building the initial
+    starter prompt (text or schema-based JSON), calling the LLM to generate the first
+    assistant response, and locking the output format for a consistent multi-turn
+    chat session.
 
     Args:
         cv_file: Uploaded CV file.
@@ -172,7 +182,7 @@ def initialize_chat(
             "Try a different format."
         )
     if matches_blocklist(cv_text) or matches_blocklist(jd_text):
-        return False, "Blocked content detected (potential prompt-injection)."
+        return False, "Blocked content detected (e.g., ignore previous instructions; potential prompt-injection)."
 
     st.session_state.cv_text = cv_text[:MAX_CHARS]
     st.session_state.jd_text = jd_text[:MAX_CHARS]
@@ -252,7 +262,7 @@ def initialize_chat(
 
 
 # -----------------------------
-# Chat turn
+# Continue / Multi-turn chatbot
 # -----------------------------
 def chat_turn(
     user_input: str,
@@ -265,7 +275,10 @@ def chat_turn(
     frequency_penalty: float,
     presence_penalty: float,
 ) -> str:
-    """Single chat turn: append user input and get assistant response.
+    """Process a single follow-up message: validate input, append it to the session-based
+    chat history, rebuild a prompt including CV/JD context, perspective, recent history,
+    and the new message, call the LLM, and store the assistant response to enable
+    a true multi-turn chatbot.
 
     Args:
         user_input: New user message to process.
@@ -292,7 +305,7 @@ def chat_turn(
     is_interviewer = st.session_state.perspective_mode == "interviewer"
     perspective_text = build_perspective_text(is_interviewer=is_interviewer)
 
-    # Compact history (last 8 messages)
+    # Keep only the most recent messages to preserve context while staying within token limits
     history = st.session_state.messages[-8:]
     history_block = "\n".join(
         [f'{m["role"].upper()}: {m["content"]}' for m in history]
@@ -309,6 +322,7 @@ def chat_turn(
         max_chars=MAX_CHARS,
     )
 
+    # Build the full user prompt: format rules + CV/JD context + recent chat history + new user message.
     prompt = (
         f"{fmt_instr}\n\n"
         f"{base}\n\n"
@@ -330,6 +344,7 @@ def chat_turn(
         force_json=output_format.startswith("JSON"),
     )
 
+    # Persist user/assistant messages in session state to enable a true multi-turn chat experience.
     st.session_state.messages.append({"role": "assistant", "content": assistant})
     return assistant
 
