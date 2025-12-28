@@ -2,6 +2,9 @@ import io
 import streamlit as st
 
 # Optional DOCX support
+# Tries to load the python-docx dependency to enable DOCX file extraction.
+# If the library is not installed, DOCX support is gracefully disabled
+# instead of crashing the application.
 try:
     import docx
     HAS_DOCX = True
@@ -9,6 +12,27 @@ except Exception:
     docx = None
     HAS_DOCX = False
 
+"""
+File: extraction.py
+
+Responsibility:
+Extract plain text from user-uploaded CV and Job Description files.
+
+Supported formats:
+- PDF (via PyPDF2)
+- DOCX (via python-docx)
+- TXT (UTF-8 decoded)
+
+Purpose:
+This module converts uploaded documents into a normalized plain-text
+representation so the content can be safely validated, truncated, and
+embedded into LLM prompts.
+
+Design notes:
+- Isolated file-processing logic (no UI, no prompt logic, no LLM calls)
+- Fault-tolerant: returns empty strings if extraction fails
+- Enables clean separation between file I/O and application logic
+"""
 
 def _extract_pdf(bytes_data: bytes) -> str:
     try:

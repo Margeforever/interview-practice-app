@@ -1,4 +1,4 @@
-import re
+import re   # Regular expressions to detect known prompt injection patterns in the text.
 
 # ==============================================
 # Security and limits
@@ -15,6 +15,8 @@ BLOCKLIST_PATTERNS = [
     r"do anything",
 ]
 
+# Basic guardrail: checks user-provided text for known prompt-injection patterns
+# and blocks it before sending any content to the LLM.
 def matches_blocklist(text: str) -> bool:
     if not text:
         return False
@@ -23,5 +25,5 @@ def matches_blocklist(text: str) -> bool:
             return True
     return False
 
-# Input length limit
+# Input length limit from CV/JD uploads to avoid excessive token usage.
 MAX_CHARS = 15000

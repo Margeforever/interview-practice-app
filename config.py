@@ -1,3 +1,11 @@
+"""
+Central configuration module.
+
+Defines the allowed LLM model and provides a secure, environment-agnostic
+way to load the OpenAI API key (local .env for development, Streamlit Secrets
+for deployment), keeping secrets out of the code and UI.
+"""
+
 import os
 import streamlit as st
 from dotenv import load_dotenv
@@ -5,7 +13,7 @@ from dotenv import load_dotenv
 # ==============================================
 # Configuration
 # - Model defaults and allowed models
-# - API key loading (env / Streamlit secrets)
+# - API key loading (env (local) / Streamlit secrets (server))
 # ==============================================
 
 # Single model per requirements

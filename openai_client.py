@@ -1,8 +1,13 @@
 """
 OpenAI client wrapper.
 
-Provides a single function to call the Chat Completions API with an
-optional JSON response_format.
+Provides a single, centralized function to call the OpenAI LLM API.
+Encapsulates all OpenAI-specific request details, including model selection,
+system and user prompts, generation parameters, and optional JSON-only
+response enforcement.
+
+This abstraction decouples application logic from the OpenAI SDK and allows
+the rest of the app to remain provider-agnostic.
 """
 
 from openai import OpenAI

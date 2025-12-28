@@ -1,10 +1,12 @@
 # prompts_formats.py
-"""Prompt helpers and JSON format instructions.
+"""Prompt engineering helpers and structured output definitions.
 
-Contains:
-- Perspective text builder.
-- Base user prompt builder.
-- Strict JSON format instructions (FORMAT_JSON_A / FORMAT_JSON_B).
+This module centralizes all prompt-building logic, including:
+- Perspective instructions (interviewer vs. candidate)
+- Base user prompt construction using CV and Job Description context
+- Strict JSON schema instructions for deterministic, machine-readable outputs
+
+It keeps prompt engineering concerns separate from UI logic and LLM API calls.
 """
 
 from typing import Literal
