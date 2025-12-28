@@ -15,6 +15,45 @@ and continue in a multi‑turn chat with persistent context.
 - config.py: MODEL and API key loading.
 - startup.sh: Headless start script (Linux/macOS).
 
+## Prompting Strategy
+
+This application primarily uses **Zero-Shot Prompting**, which proved sufficient
+for the given task and keeps the prompt logic simple and transparent.
+
+The following prompting techniques were considered:
+
+### 1. Zero-Shot Prompting (USED)
+The model receives a single system prompt with clear instructions and constraints.
+This approach was chosen because:
+- the task is well-defined,
+- the CV and Job Description provide sufficient context,
+- it minimizes prompt complexity and cost.
+
+### 2. Few-Shot Prompting (NOT USED)
+Few-shot prompting would include example CV/JD pairs and expected outputs.
+It was not used because:
+- suitable examples are highly domain-specific,
+- it increases token usage and cost,
+- it risks overfitting to example structure.
+
+### 3. Chain-of-Thought Prompting (NOT USED)
+Chain-of-Thought encourages the model to expose intermediate reasoning steps.
+It was avoided because:
+- internal reasoning is not required in the final output,
+- it can increase verbosity and cost,
+- structured JSON output benefits from concise answers instead.
+
+### 4. Role-Based Prompting (LIMITED USE)
+A lightweight role instruction (interviewer vs. candidate) is applied.
+A stronger role-play setup was not needed because:
+- the task remains factual and structured,
+- excessive role-play can reduce determinism.
+
+### 5. Self-Consistency Prompting (NOT USED)
+Generating multiple answers and selecting the best one was not used because:
+- it significantly increases API calls and cost,
+- the use case does not require probabilistic aggregation.
+
 ## Requirements
 - Python 3.10+
 - See requirements.txt
